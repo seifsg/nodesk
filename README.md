@@ -8,7 +8,7 @@ Break reminder in your tray: micro, eye, rest and water breaks timed to your rea
 - **Four kinds of break**, one calm full-screen countdown on every monitor, with a short tip. Esc skips, P postpones 5 minutes.
 - **Stays out of the way.** Waits while a fullscreen app or presentation runs; pause it from the tray.
 - **Daily stats** in the tray menu: active time and breaks taken, skipped and postponed.
-- **Tiny.** One ~360 KB exe, about 1.5 MB of private memory and ~0% CPU at idle. No network, no camera, no account. Windows 10 and 11.
+- **Tiny.** One ~360 KB exe, about 1.5 MB of private memory and ~0% CPU at idle. No network, no camera, no account. Windows 10 (1703+) and 11, tested on 11.
 
 ## Install
 
