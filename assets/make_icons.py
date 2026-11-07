@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 SIZE = 1024
 SIZES = [(s, s) for s in (16, 20, 24, 32, 40, 48, 64, 128, 256)]
-TEAL, GREY = (45, 212, 191, 255), (148, 163, 184, 255)
+TEAL, GREY = (45, 212, 191, 255), (100, 116, 139, 255)  # grey reads on light and dark taskbars
 
 
 def ring(color, sweep):

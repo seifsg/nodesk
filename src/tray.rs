@@ -10,9 +10,9 @@ use windows_sys::Win32::{
             Shell_NotifyIconW,
         },
         WindowsAndMessaging::{
-            AppendMenuW, CreatePopupMenu, DestroyMenu, HICON, MF_CHECKED, MF_GRAYED, MF_SEPARATOR,
-            MF_STRING, PostMessageW, SetForegroundWindow, TPM_BOTTOMALIGN, TPM_NONOTIFY,
-            TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WM_APP, WM_NULL,
+            AppendMenuW, CreatePopupMenu, DestroyMenu, HICON, MF_CHECKED, MF_DISABLED,
+            MF_SEPARATOR, MF_STRING, PostMessageW, SetForegroundWindow, TPM_BOTTOMALIGN,
+            TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WM_APP, WM_NULL,
         },
     },
 };
@@ -20,6 +20,7 @@ use windows_sys::Win32::{
 /// Callback message the icon sends to the host window.
 pub const MSG: u32 = WM_APP + 1;
 
+/// Our icon's identity (window + id 1); each call fills the fields it changes.
 fn data(hwnd: HWND) -> NOTIFYICONDATAW {
     let mut d: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
     d.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
@@ -50,6 +51,7 @@ pub fn add(hwnd: HWND, icon: HICON, tip: &str) {
     }
 }
 
+/// New icon and tooltip text.
 pub fn update(hwnd: HWND, icon: HICON, tip: &str) {
     let mut d = data(hwnd);
     d.uFlags = NIF_ICON | NIF_TIP | NIF_SHOWTIP;
@@ -68,6 +70,7 @@ pub fn warn(hwnd: HWND, text: &str) {
     unsafe { Shell_NotifyIconW(NIM_MODIFY, &d) };
 }
 
+/// Takes the icon out of the tray on quit.
 pub fn remove(hwnd: HWND) {
     unsafe { Shell_NotifyIconW(NIM_DELETE, &data(hwnd)) };
 }
@@ -87,7 +90,8 @@ pub fn menu(hwnd: HWND, x: i32, y: i32, items: &[Item]) -> u32 {
         let m = CreatePopupMenu();
         for it in items {
             let (flags, id, text) = match it {
-                Item::Info(t) => (MF_STRING | MF_GRAYED, 0, t.as_str()),
+                // Disabled but not greyed: stats read at full contrast and cannot be clicked.
+                Item::Info(t) => (MF_STRING | MF_DISABLED, 0, t.as_str()),
                 Item::Check(id, t, on) => (MF_STRING | if *on { MF_CHECKED } else { 0 }, *id, *t),
                 Item::Cmd(id, t) => (MF_STRING, *id, *t),
                 Item::Sep => (MF_SEPARATOR, 0, ""),

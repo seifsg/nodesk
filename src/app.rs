@@ -95,8 +95,8 @@ impl App {
         } else if !self.paused {
             let (idle, dt) = (idle_ms(), real.min(DT_CAP_MS));
             if idle < ACTIVE_MS {
-                self.day.active_ms += dt;
-                self.unsaved += dt;
+                self.day.active_ms = self.day.active_ms.saturating_add(dt);
+                self.unsaved = self.unsaved.saturating_add(dt);
             }
             if self.unsaved >= SAVE_EVERY_MS {
                 self.save();
@@ -173,7 +173,7 @@ impl App {
 
     /// Tooltip + icon, pushed to the shell only when they change.
     pub fn refresh_tray(&mut self) {
-        let quiet = self.paused || self.held;
+        let quiet = self.paused; // grey icon means paused, nothing else
         let state = if let Some(b) = &self.brk {
             format!("Break now, {} left", clock(b.left))
         } else if self.paused {

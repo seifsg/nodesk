@@ -2,15 +2,16 @@
 use crate::stats::{Day, header};
 use std::{fs, io, path::PathBuf};
 
-fn path() -> PathBuf {
-    let base = std::env::var_os("APPDATA").expect("APPDATA is not set");
-    PathBuf::from(base).join("NoDesk").join("stats.tsv")
+/// The stats file path; Err when APPDATA is missing, so stats switch off and breaks keep working.
+fn path() -> io::Result<PathBuf> {
+    let base = std::env::var_os("APPDATA").ok_or_else(|| io::Error::other("APPDATA is not set"))?;
+    Ok(PathBuf::from(base).join("NoDesk").join("stats.tsv"))
 }
 
 /// Past rows (kept verbatim, even odd ones) and today's counters.
 /// Missing file: fresh start. Unreadable file: Err, so the caller never overwrites it.
 pub fn load(today: u32) -> io::Result<(String, Day)> {
-    let text = match fs::read_to_string(path()) {
+    let text = match fs::read_to_string(path()?) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
         r => r?,
     };
@@ -33,7 +34,7 @@ pub fn load(today: u32) -> io::Result<(String, Day)> {
 
 /// Writes history + today's row through a temp file and a rename: a crash never truncates history.
 pub fn save(history: &str, day: &Day) -> io::Result<()> {
-    let p = path();
+    let p = path()?;
     fs::create_dir_all(p.parent().expect("stats path has a folder"))?;
     let tmp = p.with_extension("tmp");
     fs::write(&tmp, format!("{history}{}\n", day.line()))?;

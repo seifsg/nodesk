@@ -1,7 +1,7 @@
 //! Break screen window: one topmost layered popup over every monitor; fade-in, keys, clicks. 🌙
 use crate::{
     app,
-    paint::{self, BG, layout},
+    paint::{self, BG, Layout, layout},
     sys::{now_ms, wide},
     timer::{Break, Outcome},
 };
@@ -26,16 +26,20 @@ use windows_sys::{
     core::BOOL,
 };
 
-const FADE: usize = 2;
+/// Animation timer: fade-in, then the smoothly shrinking bar, while the screen shows.
+const FRAME: usize = 2;
+const FRAME_MS: u32 = 30;
+const FADE_MS: u32 = 250;
 const ALPHA: u8 = 245;
 /// Keys and clicks this soon after a break appears were meant for the app you were typing in.
 const GRACE_MS: u32 = 1_500;
 
 thread_local! {
-    /// What the screen shows; paint reads it, so painting never borrows app state.
-    static VIEW: Cell<Option<Break>> = const { Cell::new(None) };
-    static ALPHA_NOW: Cell<u8> = const { Cell::new(0) };
+    /// What the screen shows and when it was last set; paint reads it, never app state.
+    static VIEW: Cell<Option<(Break, u32)>> = const { Cell::new(None) };
     static SHOWN_AT: Cell<u32> = const { Cell::new(0) };
+    /// Cursor position while it is over a button (hover look, hand cursor).
+    static HOT: Cell<Option<POINT>> = const { Cell::new(None) };
 }
 
 /// Creates the hidden break window once; shown and hidden per break.
@@ -72,14 +76,14 @@ pub fn create() -> HWND {
 
 /// Covers all monitors, fades in, takes focus for Esc / P.
 pub fn show(h: HWND, b: Break) {
-    VIEW.set(Some(b));
-    ALPHA_NOW.set(0);
+    VIEW.set(Some((b, now_ms())));
     SHOWN_AT.set(now_ms());
+    HOT.set(None);
     unsafe {
         SetLayeredWindowAttributes(h, 0, 0, LWA_ALPHA);
         cover(h);
         ShowWindow(h, SW_SHOW);
-        SetTimer(h, FADE, 16, None);
+        SetTimer(h, FRAME, FRAME_MS, None);
     }
     focus(h);
 }
@@ -101,20 +105,32 @@ fn focus(h: HWND) {
     }
 }
 
-/// New countdown value: repaints only each monitor's content block.
+/// New countdown second: repaints each monitor's content block.
 pub fn update(h: HWND, b: Break) {
-    VIEW.set(Some(b));
-    for (m, dpi) in monitors() {
-        unsafe { InvalidateRect(h, &layout(&m, dpi).block, 0) };
-    }
+    VIEW.set(Some((b, now_ms())));
+    invalidate(h, |l| l.block);
 }
 
+/// Hides the screen and stops its animation timer.
 pub fn hide(h: HWND) {
     VIEW.set(None);
     unsafe {
-        KillTimer(h, FADE);
+        KillTimer(h, FRAME);
         ShowWindow(h, SW_HIDE);
     }
+}
+
+/// Marks one part of every monitor's layout for repaint.
+fn invalidate(h: HWND, part: impl Fn(&Layout) -> RECT) {
+    for (m, dpi) in monitors() {
+        unsafe { InvalidateRect(h, &part(&layout(&m, dpi)), 0) };
+    }
+}
+
+/// Break on screen plus its countdown interpolated since the last tick (for a smooth bar).
+fn view() -> Option<(Break, u32)> {
+    VIEW.get()
+        .map(|(b, at)| (b, b.left.saturating_sub(now_ms().wrapping_sub(at))))
 }
 
 /// Sizes the window to the whole virtual screen (all monitors), topmost.
@@ -164,9 +180,9 @@ fn paint(h: HWND) {
     unsafe {
         let mut ps = std::mem::zeroed();
         let dc = BeginPaint(h, &mut ps);
-        if let Some(b) = VIEW.get() {
+        if let Some((b, left)) = view() {
             for (m, dpi) in monitors() {
-                paint::draw(dc, &m, dpi, &b);
+                paint::draw(dc, &m, dpi, &b, left, HOT.get());
                 let k = layout(&m, dpi).block;
                 ExcludeClipRect(dc, k.left, k.top, k.right, k.bottom);
             }
@@ -195,18 +211,43 @@ fn hit(p: POINT) -> Option<Outcome> {
         })
 }
 
-/// Fade-in: alpha up in steps until ALPHA, then the timer stops.
-fn fade(h: HWND) {
-    let a = ALPHA_NOW.get().saturating_add(ALPHA / 10).min(ALPHA);
-    ALPHA_NOW.set(a);
+/// One animation frame: ease-out fade for the first 250 ms, then the bar moves on.
+fn frame(h: HWND) {
+    let t = now_ms().wrapping_sub(SHOWN_AT.get());
+    if t <= FADE_MS + FRAME_MS {
+        let p = 1.0 - (1.0 - (t.min(FADE_MS) as f32 / FADE_MS as f32)).powi(3);
+        unsafe { SetLayeredWindowAttributes(h, 0, (ALPHA as f32 * p) as u8, LWA_ALPHA) };
+    }
+    let Some((b, left)) = view() else { return };
     unsafe {
-        SetLayeredWindowAttributes(h, 0, a, LWA_ALPHA);
-        if a == ALPHA {
-            KillTimer(h, FADE);
+        let dc = GetDC(h);
+        for (m, dpi) in monitors() {
+            paint::draw_bar(dc, &layout(&m, dpi), &b, left);
         }
+        ReleaseDC(h, dc);
     }
 }
 
+/// Mouse moved: track which button it is over, repaint buttons when that changes.
+fn hover(h: HWND, p: POINT) {
+    let now = hit(p).map(|_| p);
+    let changed = now.is_some() != HOT.get().is_some();
+    HOT.set(now);
+    if changed {
+        invalidate(h, |l| l.skip);
+        invalidate(h, |l| l.later);
+    }
+}
+
+/// Client point packed in a mouse message's lParam.
+fn point(l: LPARAM) -> POINT {
+    POINT {
+        x: l as i16 as i32,
+        y: (l >> 16) as i16 as i32,
+    }
+}
+
+/// Break window messages: paint, animation, hover, keys and clicks.
 unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     let pick = match m {
         WM_PAINT => {
@@ -214,9 +255,17 @@ unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT
             None
         }
         WM_ERASEBKGND => return 1,
-        WM_TIMER if w == FADE => {
-            fade(h);
+        WM_TIMER if w == FRAME => {
+            frame(h);
             None
+        }
+        WM_MOUSEMOVE => {
+            hover(h, point(l));
+            None
+        }
+        WM_SETCURSOR if HOT.get().is_some() => {
+            unsafe { SetCursor(LoadCursorW(null_mut(), IDC_HAND)) };
+            return 1;
         }
         WM_DISPLAYCHANGE | WM_DPICHANGED => {
             cover(h);
@@ -231,10 +280,7 @@ unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT
         WM_KEYDOWN if w == VK_ESCAPE as usize => Some(Outcome::Skipped),
         WM_KEYDOWN if w == b'P' as usize => Some(Outcome::Postponed),
         WM_CLOSE => Some(Outcome::Skipped),
-        WM_LBUTTONUP => hit(POINT {
-            x: l as i16 as i32,
-            y: (l >> 16) as i16 as i32,
-        }),
+        WM_LBUTTONUP => hit(point(l)),
         _ => return unsafe { DefWindowProcW(h, m, w, l) },
     };
     if let Some(o) = pick {

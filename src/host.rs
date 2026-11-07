@@ -27,6 +27,8 @@ static TASKBAR_CREATED: OnceLock<u32> = OnceLock::new();
 
 /// Creates the host window and app state, then pumps messages until Quit.
 pub fn run() {
+    // Settings and stats first: their error boxes run before any window can get messages.
+    let (speed, stored) = (speed(), stored());
     let class = wide("NoDeskHost");
     let host = unsafe {
         let wc = WNDCLASSW {
@@ -58,8 +60,8 @@ pub fn run() {
         host,
         overlay::create(),
         [icon(1), icon(2)],
-        speed(),
-        stored(),
+        speed,
+        stored,
     ));
     app::with(App::add_tray);
     unsafe {
@@ -153,6 +155,7 @@ fn menu(h: HWND, x: i32, y: i32) {
     }
 }
 
+/// Host window messages: tick, tray clicks, logoff, quit, Explorer restart.
 unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     match m {
         WM_TIMER => app::with(App::tick),

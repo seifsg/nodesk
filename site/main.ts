@@ -26,19 +26,23 @@ function kb(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
-/** Latest release's exe, or null when there is none yet (404) or the API is unreachable. */
-async function latestExe(): Promise<{ tag: string; asset: Asset } | null> {
+const RELEASES = `https://github.com/${REPO}/releases/`;
+
+/** Latest release's exe; "none" when no release exists yet (404), "unknown" when the API fails (rate limit, offline). */
+async function latestExe(): Promise<{ tag: string; asset: Asset } | "none" | "unknown"> {
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json" },
     });
-    if (!res.ok) return null;
+    if (res.status === 404) return "none";
+    if (!res.ok) return "unknown";
     const body: unknown = await res.json();
-    if (!isRelease(body)) return null;
-    const asset = body.assets.find((a) => a.name === ASSET);
-    return asset ? { tag: body.tag_name, asset } : null;
+    if (!isRelease(body)) return "unknown";
+    // Only ever link to this repo's own release files.
+    const asset = body.assets.find((a) => a.name === ASSET && a.browser_download_url.startsWith(RELEASES));
+    return asset ? { tag: body.tag_name, asset } : "none";
   } catch {
-    return null;
+    return "unknown";
   }
 }
 
@@ -48,17 +52,20 @@ async function wireDownloads(): Promise<void> {
   const notes = document.querySelectorAll<HTMLElement>("[data-download-note]");
   const found = await latestExe();
   for (const a of links) {
-    if (found) {
+    if (typeof found === "object") {
       a.href = found.asset.browser_download_url;
       a.textContent = `Download ${found.tag}`;
-    } else {
+    } else if (found === "none") {
       a.href = `https://github.com/${REPO}#install`;
       a.textContent = "Get it on GitHub";
     }
   }
-  const note = found
-    ? `nodesk.exe · ${kb(found.asset.size)} · Windows 10 and 11, x64`
-    : "First release coming soon. Build it from source today.";
+  const note =
+    typeof found === "object"
+      ? `nodesk.exe · ${kb(found.asset.size)} · Windows 10 and 11, x64 · tested on 11`
+      : found === "none"
+        ? "First release coming soon. Build it from source today."
+        : "Windows 10 and 11, x64 · tested on 11 · free and open source";
   notes.forEach((n) => (n.textContent = note));
 }
 

@@ -20,6 +20,7 @@ pub fn header() -> String {
 }
 
 impl Day {
+    /// An empty day for the yyyymmdd `date`.
     pub fn new(date: u32) -> Self {
         Self {
             date,
@@ -30,7 +31,9 @@ impl Day {
 
     /// Counts one outcome for every kind the break showed.
     pub fn add(&mut self, mask: Mask, o: Outcome) {
-        in_mask(mask).for_each(|(i, _)| self.counts[i][o as usize] += 1);
+        in_mask(mask).for_each(|(i, _)| {
+            self.counts[i][o as usize] = self.counts[i][o as usize].saturating_add(1)
+        });
     }
 
     /// `2026-11-07  3600  8  1  0 ...`: one TSV row.

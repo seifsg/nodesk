@@ -58,10 +58,12 @@ pub fn fullscreen_busy() -> bool {
         )
 }
 
+/// Modal error box (never while app state is borrowed).
 pub fn error_box(msg: &str) {
     message(msg, MB_ICONERROR);
 }
 
+/// Modal info box (never while app state is borrowed).
 pub fn info_box(msg: &str) {
     message(msg, MB_ICONINFORMATION);
 }
