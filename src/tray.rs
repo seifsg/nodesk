@@ -10,9 +10,9 @@ use windows_sys::Win32::{
             Shell_NotifyIconW,
         },
         WindowsAndMessaging::{
-            AppendMenuW, CreatePopupMenu, DestroyMenu, HICON, MF_CHECKED, MF_DISABLED,
-            MF_SEPARATOR, MF_STRING, PostMessageW, SetForegroundWindow, TPM_BOTTOMALIGN,
-            TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WM_APP, WM_NULL,
+            AppendMenuW, CreatePopupMenu, DestroyMenu, HICON, MF_CHECKED, MF_SEPARATOR, MF_STRING,
+            PostMessageW, SetForegroundWindow, TPM_BOTTOMALIGN, TPM_NONOTIFY, TPM_RETURNCMD,
+            TPM_RIGHTBUTTON, TrackPopupMenu, WM_APP, WM_NULL,
         },
     },
 };
@@ -90,8 +90,9 @@ pub fn menu(hwnd: HWND, x: i32, y: i32, items: &[Item]) -> u32 {
         let m = CreatePopupMenu();
         for it in items {
             let (flags, id, text) = match it {
-                // Disabled but not greyed: stats read at full contrast and cannot be clicked.
-                Item::Info(t) => (MF_STRING | MF_DISABLED, 0, t.as_str()),
+                // Themed menus grey out any disabled row, so stats stay plain rows at full
+                // contrast; their id 0 is the same answer as dismissing the menu.
+                Item::Info(t) => (MF_STRING, 0, t.as_str()),
                 Item::Check(id, t, on) => (MF_STRING | if *on { MF_CHECKED } else { 0 }, *id, *t),
                 Item::Cmd(id, t) => (MF_STRING, *id, *t),
                 Item::Sep => (MF_SEPARATOR, 0, ""),
