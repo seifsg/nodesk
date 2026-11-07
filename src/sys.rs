@@ -7,7 +7,6 @@ use windows_sys::Win32::{
         Threading::CreateMutexW,
     },
     UI::{
-        HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
         Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO},
         Shell::{
             QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN,
@@ -78,11 +77,6 @@ fn message(msg: &str, icon: u32) {
             MB_OK | MB_SETFOREGROUND | icon,
         )
     };
-}
-
-/// Per-monitor DPI v2: crisp text on every screen. Must run before any window exists.
-pub fn dpi_aware() {
-    unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
 }
 
 /// Takes a session-wide named mutex, kept for the process lifetime; false if NoDesk already runs.

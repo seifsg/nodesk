@@ -20,7 +20,6 @@ fn main() {
         let msg = format!("NoDesk hit a bug and has to close.\n\n{p}");
         let _ = std::thread::spawn(move || sys::error_box(&msg)).join();
     }));
-    sys::dpi_aware();
     if !sys::first_instance() {
         return sys::info_box("NoDesk is already running. Find it in your tray.");
     }
