@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NoDesk · break reminder for Windows</title>
+    <meta name="description" content="A tiny Windows tray app that times micro, eye, rest and water breaks to your real keyboard and mouse activity." />
+    <meta name="theme-color" content="#0e1116" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nodesk.beast.dev/" />
+    <meta property="og:title" content="NoDesk · breaks that follow your work, not the clock" />
+    <meta property="og:description" content="Tray break reminder for Windows: micro, eye, rest and water breaks timed to real activity." />
+    <meta property="og:image" content="https://nodesk.beast.dev/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body>
+    <header class="top wrap">
+      <a class="brand" href="#top" aria-label="NoDesk home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4A12 12 0 1 1 5.6 10" /><circle cx="16" cy="16" r="3.6" /></svg>
+        NoDesk
+      </a>
+      <nav aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#screens">Screens</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/seifsg/nodesk">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero wrap">
+        <p class="eyebrow">Break reminder for Windows</p>
+        <h1>Breaks that follow your work, <span>not the clock.</span></h1>
+        <p class="lede">
+          NoDesk lives in your tray and times micro, eye, rest and water breaks to your real keyboard and mouse
+          activity. Step away and the timers pause. Stay away long enough and it counts as a break.
+        </p>
+        <div class="cta">
+          <a class="btn primary" data-download href="https://github.com/seifsg/nodesk/releases/latest">Download for Windows</a>
+          <a class="btn ghost" href="https://github.com/seifsg/nodesk">View source</a>
+        </div>
+        <p class="note" data-download-note>Windows 10 and 11, x64 · tested on 11 · free and open source</p>
+        <figure class="shot">
+          <img src="/shots/eye-micro.png" width="1040" height="585" alt="NoDesk break screen: an eye break and a micro-break merged into one countdown, a tip to look 6 m away, Skip and Postpone buttons" />
+        </figure>
+      </section>
+
+      <section id="features" class="wrap">
+        <h2>Small app, whole job</h2>
+        <div class="grid">
+          <article><h3>Counts real work</h3><p>Once a second NoDesk reads your system idle time. Timers only move while you type or use the mouse.</p></article>
+          <article><h3>Natural breaks count</h3><p>Away from the desk as long as a break lasts? That break is done. No pointless reminder when you come back.</p></article>
+          <article><h3>Four kinds of break</h3><p>Micro-breaks to stretch, eye breaks for the 20-20-20 rule, rest breaks to walk, and water breaks.</p></article>
+          <article><h3>One calm screen</h3><p>Breaks due together share one full-screen countdown on every monitor, with a short tip for each.</p></article>
+          <article><h3>Skip or postpone</h3><p>Esc skips, P postpones 5 minutes. Keys in the first moment are ignored, so typing never dismisses a break.</p></article>
+          <article><h3>Stays out of the way</h3><p>Waits while a fullscreen app or presentation runs. Pause it from the tray whenever you need to.</p></article>
+          <article><h3>Daily stats</h3><p>Active time plus breaks taken, skipped and postponed, right in the tray menu. Kept on your PC.</p></article>
+          <article><h3>Tiny and private</h3><p>One ~360 KB exe, about 1.5 MB of private memory and ~0% CPU at idle. No network, no camera, no account.</p></article>
+        </div>
+      </section>
+
+      <section id="screens" class="wrap">
+        <h2>What you see</h2>
+        <div class="gallery">
+          <figure class="shot"><img src="/shots/rest.png" width="1040" height="585" loading="lazy" alt="Rest break: five minute countdown with a tip to walk and stretch your legs" /><figcaption>Rest break, every hour of work: five minutes away from the desk.</figcaption></figure>
+          <figure class="shot"><img src="/shots/water.png" width="1040" height="585" loading="lazy" alt="Eye, micro and water breaks due together on one screen, each with its own tip" /><figcaption>Breaks due together share one screen, each kind in its own colour.</figcaption></figure>
+          <figure class="shot menu"><img src="/shots/tray-menu.png" width="372" height="200" loading="lazy" alt="Tray menu with today's active time, breaks taken, skipped and postponed per kind, Pause breaks and Start with Windows" /><figcaption>Right-click the tray icon for today's stats, Pause and Start with Windows.</figcaption></figure>
+        </div>
+      </section>
+
+      <section id="defaults" class="wrap">
+        <h2>Default rhythm</h2>
+        <div class="table">
+          <table>
+            <thead><tr><th>Break</th><th>Every</th><th>Lasts</th></tr></thead>
+            <tbody>
+              <tr><td><i class="dot micro"></i>Micro-break</td><td>10 min of work</td><td>20 s</td></tr>
+              <tr><td><i class="dot eye"></i>Eye break</td><td>20 min of work</td><td>20 s</td></tr>
+              <tr><td><i class="dot rest"></i>Rest break</td><td>60 min of work</td><td>5 min</td></tr>
+              <tr><td><i class="dot water"></i>Water break</td><td>45 min of work</td><td>15 s</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="faq" class="wrap">
+        <h2>Questions</h2>
+        <details><summary>Windows warns me about the download</summary><p>The exe is not code-signed yet, so SmartScreen may say "Windows protected your PC". Choose More info, then Run anyway, or build it from source.</p></details>
+        <details><summary>How do I start it with Windows?</summary><p>Right-click the tray icon and tick Start with Windows. Untick it to remove it again.</p></details>
+        <details><summary>Where are my stats stored?</summary><p>In <code>%APPDATA%\NoDesk\stats.tsv</code>, one row per day. It opens in any spreadsheet and never leaves your PC.</p></details>
+        <details><summary>Can I change the timings?</summary><p>Not from the app yet. The defaults follow the 20-20-20 rule and common desk-work advice.</p></details>
+        <details><summary>Mac or Linux?</summary><p>Windows only for now.</p></details>
+      </section>
+    </main>
+
+    <footer class="wrap">
+      <p>NoDesk is free and open source. <a href="https://github.com/seifsg/nodesk">Source on GitHub</a></p>
+      <p>🏭 Built with <a href="https://softwarefactory.company/">AI Software Factory</a> by Seif</p>
+    </footer>
+  </body>
+</html>

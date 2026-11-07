@@ -1,0 +1,27 @@
+# Builds nodesk.exe when a version tag (v0.1.0, ...) is pushed and attaches it to a GitHub Release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # build scripts never see a token that can write
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      - name: Publish the release with nodesk.exe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Tags like v1.2.0-rc1 publish as pre-releases, so the site's "latest" download skips them.
+        run: |
+          pre=""; [[ "$GITHUB_REF_NAME" == *-* ]] && pre="--prerelease"
+          gh release create "$GITHUB_REF_NAME" target/release/nodesk.exe --repo "$GITHUB_REPOSITORY" --title "NoDesk $GITHUB_REF_NAME" --generate-notes $pre
