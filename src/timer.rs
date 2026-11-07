@@ -14,6 +14,15 @@ pub enum Outcome {
     Postponed,
 }
 
+/// A break on screen: its kinds, real ms left of `total`, and the tip rotation seed.
+#[derive(Clone, Copy, Debug)]
+pub struct Break {
+    pub mask: Mask,
+    pub left: u32,
+    pub total: u32,
+    pub rot: u32,
+}
+
 /// Active ms counted toward each kind since its last break.
 #[derive(Default)]
 pub struct Timer {

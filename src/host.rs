@@ -1,6 +1,7 @@
 //! Hidden host window: owns the tray icon, the 1 s tick and the message loop. 🏠
 use crate::{
     app::{self, App},
+    overlay,
     sys::{error_box, wide},
     tray,
 };
@@ -50,7 +51,12 @@ pub fn run() {
     assert!(!host.is_null(), "could not create the host window");
     TASKBAR_CREATED
         .get_or_init(|| unsafe { RegisterWindowMessageW(wide("TaskbarCreated").as_ptr()) });
-    app::init(App::new(host, [icon(1), icon(2)], speed()));
+    app::init(App::new(
+        host,
+        overlay::create(),
+        [icon(1), icon(2)],
+        speed(),
+    ));
     app::with(App::add_tray);
     unsafe {
         SetTimer(host, 1, 1000, None);

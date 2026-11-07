@@ -1,10 +1,11 @@
 //! App state and what happens each second: timers, today's stats, tray text. 🧠
 use crate::{
-    kinds::KINDS,
+    kinds::{KINDS, Mask},
+    overlay,
     stats::Day,
     sys::{fullscreen_busy, idle_ms, now_ms, today},
-    text::dur,
-    timer::{ACTIVE_MS, Timer},
+    text::{clock, dur},
+    timer::{ACTIVE_MS, Break, Outcome, Timer, longest},
     tray,
 };
 use std::cell::RefCell;
@@ -15,11 +16,14 @@ const DT_CAP_MS: u32 = 2_000;
 
 pub struct App {
     pub host: HWND,
+    overlay: HWND,
     icons: [HICON; 2],
     timer: Timer,
     pub day: Day,
     pub paused: bool,
     held: bool,
+    brk: Option<Break>,
+    rot: u32,
     last: u32,
     speed: u32,
     shown: (bool, String),
@@ -41,33 +45,46 @@ pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> R {
 
 impl App {
     /// `icons`: [normal, paused]; `speed`: demo multiplier for active time (1 = real).
-    pub fn new(host: HWND, icons: [HICON; 2], speed: u32) -> Self {
+    pub fn new(host: HWND, overlay: HWND, icons: [HICON; 2], speed: u32) -> Self {
         Self {
             host,
+            overlay,
             icons,
             timer: Timer::default(),
             day: Day::new(today()),
             paused: false,
             held: false,
+            brk: None,
+            rot: now_ms(),
             last: now_ms(),
             speed,
             shown: (false, String::new()),
         }
     }
 
-    /// Once a second: roll the day, advance timers on real activity, refresh the tray.
+    /// Once a second: roll the day, run the break countdown or the timers, refresh the tray.
     pub fn tick(&mut self) {
         let now = now_ms();
-        let dt = now.wrapping_sub(self.last).min(DT_CAP_MS);
+        let real = now.wrapping_sub(self.last);
         self.last = now;
         self.roll_day();
-        if !self.paused {
-            let idle = idle_ms();
+        if let Some(b) = &mut self.brk {
+            // Real time, uncapped: a break slept through is a break taken.
+            b.left = b.left.saturating_sub(real);
+            match *b {
+                Break { left: 0, .. } => self.finish(Outcome::Taken),
+                b => overlay::update(self.overlay, b),
+            }
+        } else if !self.paused {
+            let (idle, dt) = (idle_ms(), real.min(DT_CAP_MS));
             if idle < ACTIVE_MS {
                 self.day.active_ms += dt;
             }
             let due = self.timer.tick(dt * self.speed, idle);
             self.held = due != 0 && fullscreen_busy();
+            if due != 0 && !self.held {
+                self.start(due);
+            }
             #[cfg(debug_assertions)]
             eprintln!(
                 "idle {idle} ms, due {due:04b}, next {:?}",
@@ -75,6 +92,30 @@ impl App {
             );
         }
         self.refresh_tray();
+    }
+
+    /// Shows one screen for every kind due now.
+    fn start(&mut self, due: Mask) {
+        let total = longest(due);
+        let b = Break {
+            mask: due,
+            left: total,
+            total,
+            rot: self.rot,
+        };
+        self.rot = self.rot.wrapping_add(1);
+        self.brk = Some(b);
+        overlay::show(self.overlay, b);
+    }
+
+    /// Ends the break on screen with its outcome: timers reset or snooze, today's counts grow.
+    pub fn finish(&mut self, o: Outcome) {
+        if let Some(b) = self.brk.take() {
+            self.timer.finish(b.mask, o);
+            self.day.add(b.mask, o);
+            overlay::hide(self.overlay);
+            self.refresh_tray();
+        }
     }
 
     /// A new local date starts a fresh day of stats.
@@ -88,7 +129,9 @@ impl App {
     /// Tooltip + icon, pushed to the shell only when they change.
     pub fn refresh_tray(&mut self) {
         let quiet = self.paused || self.held;
-        let state = if self.paused {
+        let state = if let Some(b) = &self.brk {
+            format!("Break now, {} left", clock(b.left))
+        } else if self.paused {
             "Paused".into()
         } else if self.held {
             "Break waits for your fullscreen app".into()

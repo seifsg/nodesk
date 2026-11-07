@@ -4,6 +4,8 @@
 mod app;
 mod host;
 mod kinds;
+mod overlay;
+mod paint;
 mod stats;
 mod sys;
 mod text;
