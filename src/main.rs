@@ -7,6 +7,7 @@ mod kinds;
 mod overlay;
 mod paint;
 mod stats;
+mod store;
 mod sys;
 mod text;
 mod timer;

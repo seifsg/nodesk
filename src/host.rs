@@ -2,8 +2,11 @@
 use crate::{
     app::{self, App},
     overlay,
-    sys::{error_box, wide},
-    tray,
+    stats::Day,
+    store,
+    sys::{error_box, today, wide},
+    text::stats_lines,
+    tray::{self, Item},
 };
 use std::{
     ptr::{null, null_mut},
@@ -56,6 +59,7 @@ pub fn run() {
         overlay::create(),
         [icon(1), icon(2)],
         speed(),
+        stored(),
     ));
     app::with(App::add_tray);
     unsafe {
@@ -88,6 +92,19 @@ fn icon(id: u16) -> HICON {
     }
 }
 
+/// Today's stats from disk. An unreadable file is reported and left untouched (no saving).
+fn stored() -> (Option<String>, Day) {
+    store::load(today()).map_or_else(
+        |e| {
+            error_box(&format!(
+                "Could not read your NoDesk stats ({e}).\nBreaks still work; stats will not be saved this session."
+            ));
+            (None, Day::new(today()))
+        },
+        |(h, d)| (Some(h), d),
+    )
+}
+
 /// `NODESK_SPEED=60` makes active time run 60x for demos; anything invalid is refused loudly.
 fn speed() -> u32 {
     match std::env::var("NODESK_SPEED") {
@@ -110,7 +127,11 @@ const CMD_QUIT: u32 = 1;
 
 /// Tray menu: built from app state, shown with no state borrowed, then the pick applied.
 fn menu(h: HWND, x: i32, y: i32) {
-    let items = [tray::Item::Cmd(CMD_QUIT, "Quit NoDesk")];
+    let mut items: Vec<Item> = app::with(|a| stats_lines(&a.day))
+        .into_iter()
+        .map(Item::Info)
+        .collect();
+    items.extend([Item::Sep, Item::Cmd(CMD_QUIT, "Quit NoDesk")]);
     if tray::menu(h, x, y, &items) == CMD_QUIT {
         unsafe { DestroyWindow(h) };
     }
@@ -125,7 +146,9 @@ unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT
                 menu(h, w as u16 as i16 as i32, (w >> 16) as u16 as i16 as i32);
             }
         }
+        WM_ENDSESSION if w != 0 => app::with(App::save),
         WM_DESTROY => unsafe {
+            app::with(App::save);
             tray::remove(h);
             PostQuitMessage(0);
         },
