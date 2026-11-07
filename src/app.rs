@@ -193,6 +193,14 @@ impl App {
         }
     }
 
+    /// Pause stops every timer (and today's active time) until Resume.
+    pub fn toggle_pause(&mut self) {
+        self.paused = !self.paused;
+        self.held = false;
+        self.save();
+        self.refresh_tray();
+    }
+
     /// Puts the icon back, e.g. after Explorer restarted.
     pub fn add_tray(&mut self) {
         tray::add(self.host, self.icons[0], "NoDesk");

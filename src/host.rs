@@ -1,7 +1,7 @@
 //! Hidden host window: owns the tray icon, the 1 s tick and the message loop. 🏠
 use crate::{
     app::{self, App},
-    overlay,
+    autostart, overlay,
     stats::Day,
     store,
     sys::{error_box, today, wide},
@@ -124,16 +124,32 @@ fn speed() -> u32 {
 
 const NIN_KEYSELECT: u32 = NIN_SELECT | NINF_KEY;
 const CMD_QUIT: u32 = 1;
+const CMD_PAUSE: u32 = 2;
+const CMD_AUTOSTART: u32 = 3;
 
 /// Tray menu: built from app state, shown with no state borrowed, then the pick applied.
 fn menu(h: HWND, x: i32, y: i32) {
-    let mut items: Vec<Item> = app::with(|a| stats_lines(&a.day))
-        .into_iter()
-        .map(Item::Info)
-        .collect();
-    items.extend([Item::Sep, Item::Cmd(CMD_QUIT, "Quit NoDesk")]);
-    if tray::menu(h, x, y, &items) == CMD_QUIT {
-        unsafe { DestroyWindow(h) };
+    let (lines, paused) = app::with(|a| (stats_lines(&a.day), a.paused));
+    let mut items: Vec<Item> = lines.into_iter().map(Item::Info).collect();
+    let auto = autostart::is_on();
+    items.extend([
+        Item::Sep,
+        Item::Check(CMD_PAUSE, "Pause breaks", paused),
+        Item::Check(CMD_AUTOSTART, "Start with Windows", auto),
+        Item::Sep,
+        Item::Cmd(CMD_QUIT, "Quit NoDesk"),
+    ]);
+    match tray::menu(h, x, y, &items) {
+        CMD_PAUSE => app::with(App::toggle_pause),
+        CMD_AUTOSTART => {
+            if let Err(e) = autostart::set(!auto) {
+                error_box(&format!("Could not change Start with Windows: {e}"));
+            }
+        }
+        CMD_QUIT => unsafe {
+            DestroyWindow(h);
+        },
+        _ => {}
     }
 }
 
