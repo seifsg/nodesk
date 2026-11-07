@@ -22,10 +22,12 @@ const EDGE: u32 = rgb(0x2E3744);
 const TRACKING: i32 = 2;
 
 /// Logical px -> device px for one monitor: its DPI, plus up to 1.4x on tall screens
-/// so the screen reads the same on a 1440p or 4K panel as on 1080p.
+/// so the screen reads the same on a 1440p or 4K panel as on 1080p, and never taller than
+/// the monitor (the 520 px block plus margin must fit on short or heavily scaled screens).
 pub fn scale(m: &RECT, dpi: u32) -> impl Fn(i32) -> i32 {
-    let logical_height = (m.bottom - m.top) as f32 * 96.0 / dpi as f32;
-    let f = dpi as f32 / 96.0 * (logical_height / 1080.0).clamp(1.0, 1.4);
+    let height = (m.bottom - m.top) as f32;
+    let logical_height = height * 96.0 / dpi as f32;
+    let f = (dpi as f32 / 96.0 * (logical_height / 1080.0).clamp(1.0, 1.4)).min(height / 560.0);
     move |v| (v as f32 * f).round() as i32
 }
 

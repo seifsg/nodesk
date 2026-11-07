@@ -51,13 +51,16 @@ pub fn add(hwnd: HWND, icon: HICON, tip: &str) {
     }
 }
 
-/// New icon and tooltip text.
+/// New icon and tooltip text. If the shell lost the icon (it was not ready at login),
+/// the update adds it back, so the tray never stays empty.
 pub fn update(hwnd: HWND, icon: HICON, tip: &str) {
     let mut d = data(hwnd);
     d.uFlags = NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     d.hIcon = icon;
     put(&mut d.szTip, tip);
-    unsafe { Shell_NotifyIconW(NIM_MODIFY, &d) };
+    if unsafe { Shell_NotifyIconW(NIM_MODIFY, &d) } == 0 {
+        add(hwnd, icon, tip);
+    }
 }
 
 /// Non-modal warning balloon: safe to call while app state is borrowed.

@@ -46,8 +46,14 @@ pub fn init(app: App) {
 }
 
 /// Runs `f` on the app state. Never show modal UI (menus, message boxes) inside `f`.
-pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> R {
-    APP.with_borrow_mut(|a| f(a.as_mut().expect("app state used before init")))
+/// None when the state is busy: Windows can deliver a sent message (logoff, Explorer restart,
+/// a tray click) while a shell call inside `f` waits. Callers skip it (the next tick redoes the
+/// work) or post the message again.
+pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
+    APP.with(|cell| {
+        let mut app = cell.try_borrow_mut().ok()?;
+        Some(f(app.as_mut().expect("app state used before init")))
+    })
 }
 
 impl App {

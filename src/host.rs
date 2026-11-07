@@ -131,7 +131,9 @@ const CMD_AUTOSTART: u32 = 3;
 
 /// Tray menu: built from app state, shown with no state borrowed, then the pick applied.
 fn menu(h: HWND, x: i32, y: i32) {
-    let (lines, paused) = app::with(|a| (stats_lines(&a.day), a.paused));
+    let Some((lines, paused)) = app::with(|a| (stats_lines(&a.day), a.paused)) else {
+        return; // state busy: ignore this click
+    };
     let mut items: Vec<Item> = lines.into_iter().map(Item::Info).collect();
     let auto = autostart::is_on();
     items.extend([
@@ -142,7 +144,9 @@ fn menu(h: HWND, x: i32, y: i32) {
         Item::Cmd(CMD_QUIT, "Quit NoDesk"),
     ]);
     match tray::menu(h, x, y, &items) {
-        CMD_PAUSE => app::with(App::toggle_pause),
+        CMD_PAUSE => {
+            app::with(App::toggle_pause);
+        }
         CMD_AUTOSTART => {
             if let Err(e) = autostart::set(!auto) {
                 error_box(&format!("Could not change Start with Windows: {e}"));
@@ -158,20 +162,28 @@ fn menu(h: HWND, x: i32, y: i32) {
 /// Host window messages: tick, tray clicks, logoff, quit, Explorer restart.
 unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     match m {
-        WM_TIMER => app::with(App::tick),
+        WM_TIMER => {
+            app::with(App::tick);
+        }
         tray::MSG => {
             if let WM_CONTEXTMENU | NIN_SELECT | NIN_KEYSELECT = l as u32 & 0xFFFF {
                 // Version-4 icons send the anchor point in wParam.
                 menu(h, w as u16 as i16 as i32, (w >> 16) as u16 as i16 as i32);
             }
         }
-        WM_ENDSESSION if w != 0 => app::with(App::save),
+        WM_ENDSESSION if w != 0 => {
+            app::with(App::save);
+        }
         WM_DESTROY => unsafe {
             app::with(App::save);
             tray::remove(h);
             PostQuitMessage(0);
         },
-        _ if Some(&m) == TASKBAR_CREATED.get() => app::with(App::add_tray),
+        _ if Some(&m) == TASKBAR_CREATED.get() => {
+            if app::with(App::add_tray).is_none() {
+                unsafe { PostMessageW(h, m, w, l) }; // state busy: re-add on the next pass
+            }
+        }
         _ => return unsafe { DefWindowProcW(h, m, w, l) },
     }
     0

@@ -219,12 +219,21 @@ fn frame(h: HWND) {
         unsafe { SetLayeredWindowAttributes(h, 0, (ALPHA as f32 * p) as u8, LWA_ALPHA) };
     }
     let Some((b, left)) = view() else { return };
+    let screens = monitors();
     unsafe {
         let dc = GetDC(h);
-        for (m, dpi) in monitors() {
-            paint::draw_bar(dc, &layout(&m, dpi), &b, left);
+        for (m, dpi) in &screens {
+            paint::draw_bar(dc, &layout(m, *dpi), &b, left);
         }
         ReleaseDC(h, dc);
+        if t > FADE_MS {
+            // After the fade, wake only as often as the bar moves one pixel (a 5 min rest: ~2/s).
+            let bar = |(m, dpi): &(RECT, u32)| layout(m, *dpi).bar;
+            let px = screens
+                .first()
+                .map_or(1, |s| (bar(s).right - bar(s).left).max(1) as u32);
+            SetTimer(h, FRAME, (b.total / px).clamp(FRAME_MS, 1000), None);
+        }
     }
 }
 
