@@ -1,6 +1,6 @@
 //! Break screen drawing ("Dusk" look): per-monitor layout and GDI paint. 🎨
 use crate::{
-    kinds::{KINDS, Kind, in_mask, rgb},
+    kinds::{Kind, in_mask, rgb},
     sys::wide,
     text::{clock, dur},
     timer::{Break, SNOOZE_MS},
@@ -168,9 +168,13 @@ pub fn draw(hdc: HDC, m: &RECT, dpi: u32, b: &Break) {
     let l = layout(m, dpi);
     let s = |v: i32| v * dpi as i32 / 96;
     let (w, h) = (l.block.right - l.block.left, l.block.bottom - l.block.top);
-    let primary = in_mask(b.mask)
-        .max_by_key(|(i, k)| (k.length_ms, usize::MAX - i))
-        .map_or(&KINDS[0], |(_, k)| k);
+    // Longest kind leads (label, accent, big tip); ties go to the later row (eye over micro).
+    let mut order: Vec<&Kind> = in_mask(b.mask).map(|(_, k)| k).collect();
+    if let Some(i) = (0..order.len()).max_by_key(|&i| (order[i].length_ms, i)) {
+        let lead = order.remove(i);
+        order.insert(0, lead);
+    }
+    let primary = order[0]; // a break always holds at least one kind
     let tip = |k: &Kind| k.tips[b.rot as usize % k.tips.len()];
     unsafe {
         let dc = CreateCompatibleDC(hdc);
@@ -180,9 +184,7 @@ pub fn draw(hdc: HDC, m: &RECT, dpi: u32, b: &Break) {
         SetBkMode(dc, TRANSPARENT as i32);
         fill(dc, &l.block, BG);
 
-        let names: Vec<_> = in_mask(b.mask)
-            .map(|(_, k)| k.name.to_uppercase())
-            .collect();
+        let names: Vec<_> = order.iter().map(|k| k.name.to_uppercase()).collect();
         SetTextCharacterExtra(dc, s(2));
         text(
             dc,
@@ -206,8 +208,7 @@ pub fn draw(hdc: HDC, m: &RECT, dpi: u32, b: &Break) {
 
         let line = DT_CENTER | DT_SINGLELINE | DT_END_ELLIPSIS;
         text(dc, &l.tips, tip(primary), Face::Text, s(28), TEXT, line);
-        let others = in_mask(b.mask).filter(|(_, k)| !std::ptr::eq(*k, primary));
-        for (n, (_, k)) in others.enumerate() {
+        for (n, k) in order.iter().skip(1).enumerate() {
             let r = RECT {
                 top: l.tips.top + s(56 + 32 * n as i32),
                 ..l.tips

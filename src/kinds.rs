@@ -48,7 +48,7 @@ pub const KINDS: [Kind; 4] = [
         accent: rgb(0xFBBF24),
         tips: &[
             "Look at something 6 m (20 ft) away until the timer ends.",
-            "Blink slowly a few times, then rest your eyes on something far away.",
+            "Rest your eyes on something 6 m (20 ft) away. Blink slowly.",
         ],
     },
     Kind {

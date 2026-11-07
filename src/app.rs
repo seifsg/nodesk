@@ -105,12 +105,16 @@ impl App {
         };
         self.rot = self.rot.wrapping_add(1);
         self.brk = Some(b);
+        #[cfg(debug_assertions)]
+        eprintln!("start mask {due:04b}");
         overlay::show(self.overlay, b);
     }
 
     /// Ends the break on screen with its outcome: timers reset or snooze, today's counts grow.
     pub fn finish(&mut self, o: Outcome) {
         if let Some(b) = self.brk.take() {
+            #[cfg(debug_assertions)]
+            eprintln!("finish {o:?} mask {:04b} left {} ms", b.mask, b.left);
             self.timer.finish(b.mask, o);
             self.day.add(b.mask, o);
             overlay::hide(self.overlay);

@@ -2,7 +2,7 @@
 use crate::{
     app,
     paint::{self, BG, layout},
-    sys::wide,
+    sys::{now_ms, wide},
     timer::{Break, Outcome},
 };
 use std::{
@@ -28,11 +28,14 @@ use windows_sys::{
 
 const FADE: usize = 2;
 const ALPHA: u8 = 245;
+/// Keys and clicks this soon after a break appears were meant for the app you were typing in.
+const GRACE_MS: u32 = 1_500;
 
 thread_local! {
     /// What the screen shows; paint reads it, so painting never borrows app state.
     static VIEW: Cell<Option<Break>> = const { Cell::new(None) };
     static ALPHA_NOW: Cell<u8> = const { Cell::new(0) };
+    static SHOWN_AT: Cell<u32> = const { Cell::new(0) };
 }
 
 /// Creates the hidden break window once; shown and hidden per break.
@@ -71,6 +74,7 @@ pub fn create() -> HWND {
 pub fn show(h: HWND, b: Break) {
     VIEW.set(Some(b));
     ALPHA_NOW.set(0);
+    SHOWN_AT.set(now_ms());
     unsafe {
         SetLayeredWindowAttributes(h, 0, 0, LWA_ALPHA);
         cover(h);
@@ -218,6 +222,12 @@ unsafe extern "system" fn proc(h: HWND, m: u32, w: WPARAM, l: LPARAM) -> LRESULT
             cover(h);
             None
         }
+        WM_KEYDOWN | WM_LBUTTONUP | WM_CLOSE
+            if now_ms().wrapping_sub(SHOWN_AT.get()) < GRACE_MS =>
+        {
+            None
+        }
+        WM_KEYDOWN if l >> 30 & 1 == 1 => None, // auto-repeat of a key held before the break
         WM_KEYDOWN if w == VK_ESCAPE as usize => Some(Outcome::Skipped),
         WM_KEYDOWN if w == b'P' as usize => Some(Outcome::Postponed),
         WM_CLOSE => Some(Outcome::Skipped),
